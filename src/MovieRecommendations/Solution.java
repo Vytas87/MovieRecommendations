@@ -4,10 +4,16 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.*;
 
+/*
+ * This application creates a list of most popular movies based on user and product data, as well as recommends related movies for users in session.
+ *
+ * NOTE: the solution provided is solely based on the correct format of the input files. Therefore:
+ *      - all edge cases ahd exceptions still need to be handled
+ *      - unit tests have to be written
+ */
+
 public class Solution {
 
-    // The following class constant could be local variable in the main method, and is placed here for emphasis of
-    // the case objective
     private static final int NUMBER_OF_MOST_POPULAR_MOVIES = 3;
 
     private static String userInputDirectory = System.getProperty("user.dir") + "\\Movie product data\\Users.txt";
@@ -18,16 +24,14 @@ public class Solution {
 
     public static void main(String[] args) throws FileNotFoundException {
         // Lists of Users and Products (i.e. movies in this case) are created and they are indexed by their respective
-        // IDs (HashMap<movieID, User/Product>) so as to have easier and faster queries. The objects of Users and of
-        // Products themselves contain all
-        // information from the input files that pertain to them
+        // IDs (HashMap<movieID, User/Product>)
         Map<Integer, User> users = createListOfUsers(userInputDirectory);
         Map<Integer, Product> products = createListOfProducts(productInputDirectory);
 
         // 1) Solving for "recent popular products"
         List<Integer> mostPopularMoviesByID = getMostPopularMoviesByID(users, products);
         // The number of most popular movies to print is determined by the class constant (i.e. '3' in this case)
-        printMostPopularMovies(mostPopularMoviesByID, products);
+        printMostPopularMovies(NUMBER_OF_MOST_POPULAR_MOVIES, mostPopularMoviesByID, products);
 
         // 2) Solving for recommendations on current user session data
         // The following list structure represents HashMap<movieID, viewedMovieID>
@@ -37,7 +41,7 @@ public class Solution {
         // Calculate and print recommendations sorted by rating for every user in session
         Set<Integer> setOfCurrUsersByID = currUsers.keySet();
         for (int currUserID : setOfCurrUsersByID) {
-            List<Product> recommendedProducts = calculateRecommendedProducts(currUserID, currUsers, users, products);
+            List<Product> recommendedProducts = calculateRecommendedProducts(currUserID, currUsers, products);
             sortProductsByRating(recommendedProducts);
 
             User currUser = users.get(currUserID);
@@ -49,10 +53,11 @@ public class Solution {
     private static Map<Integer, User> createListOfUsers(String directory) throws FileNotFoundException {
         List<String[]> listOfUsersString = parseInputFile(directory);
 
-        // The following is input file format-specific as described in README.txt
+        // The following is input file format-specific as described in README.txt:
+        // "id, name, viewed (products seperated by ;), purchased (products seperated by ;)"
         Map<Integer, User> listOfUsers = new HashMap<>();
         for (String[] user : listOfUsersString) {
-            // Parameters for the constructor
+            
             int userID = Integer.parseInt(user[0]);
             String userName = user[1];
 
@@ -102,7 +107,8 @@ public class Solution {
             listOfProductsString.add(productString);
         }
 
-        // The following is input file format-specific as described in README.txt
+        // The following is input file format-specific as described in README.txt:
+        // "id, name, year, keyword 1, keyword 2, keyword 3, keyword 4, keyword 5, rating, price"
         Map<Integer, Product> listOfProducts = new HashMap<>();
         for (String[] product : listOfProductsString) {
             // Parameters for the constructor
@@ -139,7 +145,7 @@ public class Solution {
         return mostPopularMoviesByID.getSortedList();
     }
 
-    private static void printMostPopularMovies(List<Integer> listOfMostPopularMoviesByID, Map<Integer, Product> products) {
+    private static void printMostPopularMovies(int numOfMoviesToPrint, List<Integer> listOfMostPopularMoviesByID, Map<Integer, Product> products) {
         System.out.println();
         System.out.println("----------------------------------------------");
         System.out.println("Most popular movies:");
@@ -147,7 +153,7 @@ public class Solution {
         System.out.println();
         // The entire sorted list or only the specified number of most popular movies will be printed, whichever is
         // the smallest (i.e. handling ArrayIndexOutOfBounds case)
-        int nrOfMoviesToPrint = Math.min(Solution.NUMBER_OF_MOST_POPULAR_MOVIES, listOfMostPopularMoviesByID.size());
+        int nrOfMoviesToPrint = Math.min(numOfMoviesToPrint, listOfMostPopularMoviesByID.size());
         for (int i = 0; i < nrOfMoviesToPrint; i++) {
             String movieTitle = products.get(listOfMostPopularMoviesByID.get(i)).getProductName();
             System.out.printf("%2d. %s\n", i + 1, movieTitle);
@@ -158,7 +164,8 @@ public class Solution {
     private static Map<Integer, Integer> createListOfCurrentUserSession(String directory) throws FileNotFoundException {
         List<String[]> listOfCurrentUsersString = parseInputFile(directory);
 
-        // The following is input file format-specific
+        // The following is input file format-specific as described in README.txt:
+        // "userid, productid"
         Map<Integer, Integer> listOfCurrentUsers = new HashMap<>();
         for (String[] currUser : listOfCurrentUsersString) {
             int userID = Integer.parseInt(currUser[0]);
@@ -195,30 +202,18 @@ public class Solution {
         System.out.println();
     }
 
-    private static List<Product> calculateRecommendedProducts(int currUserID, Map<Integer, Integer> currUsers, Map<Integer,
-            User> users, Map<Integer, Product> products) {
+    private static List<Product> calculateRecommendedProducts(int currUserID, Map<Integer, Integer> currUsers, Map<Integer, Product> products) {
         int currProductID = currUsers.get(currUserID);
         Product currProduct = products.get(currProductID);
-        // Fetching the descriptive keywords of the movie that is currently viewed
         List<String> relevantKeywords = currProduct.getProductKeywords();
-        // Initializing the list where all the recommended movie IDs will be put
         List<Integer> recommendedProductsByID = new ArrayList<>();
         // The purpose of the following loop is to look for products that match by at least one keyword describing
         // the movie that is currently viewed
         for (String keyword : relevantKeywords) {   // for every keyword
             for (int productID : products.keySet()) {   // run through all products
-                // creating descriptive boolean check conditions
-                // no need to include the movie that is currently viewed
                 boolean isProductCurrentlyViewed = productID == currProductID;
-                // repeating to recommend the same movies multiple times should be exluded
                 boolean hasProductBeenIncluded = recommendedProductsByID.contains(productID);
-                // last important check determines whether some other movie has similarities to the one that is
-                // currently viewed
                 boolean productContainsSameKeyword = products.get(productID).getProductKeywords().contains(keyword);
-                // So, if the movie that is currently being considered is not the movie that is currently being
-                // viewed by the user, and if it has not yet been considered, and if it contains the keyword
-                // describing the movie that is currently being viewed by the user, - then it is added to the list of
-                // recommendations
                 if (!isProductCurrentlyViewed && !hasProductBeenIncluded && productContainsSameKeyword) {
                     recommendedProductsByID.add(productID);
                 }
